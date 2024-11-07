@@ -229,14 +229,14 @@ func (pq *KeyedPriorityQueue[K, V]) ValueOf(k K) (V, bool) {
 }
 
 // Remove removes the priority value associated with the given key k from the priority queue.
-// It's a no-op if there's no such key k in the priority queue.
-func (pq *KeyedPriorityQueue[K, V]) Remove(k K) {
+// It's a no-op if there's no such key k in the priority queue and it will return false.
+func (pq *KeyedPriorityQueue[K, V]) Remove(k K) bool {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()
 
 	i, ok := pq.im[k]
 	if !ok {
-		return
+		return false
 	}
 	n := len(pq.pm) - 1
 	if i != n {
@@ -247,6 +247,7 @@ func (pq *KeyedPriorityQueue[K, V]) Remove(k K) {
 	pq.pm = pq.pm[:n]
 	delete(pq.im, k)
 	delete(pq.vals, k)
+	return true
 }
 
 // Len returns the size of the priority queue.
