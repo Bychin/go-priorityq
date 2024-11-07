@@ -286,39 +286,60 @@ func TestKeyedPriorityQueue_Remove(t *testing.T) {
 	t.Run("Keys", func(t *testing.T) {
 		testCases := []struct {
 			key           string
+			wantStatus    bool
 			wantPeekKey   string
 			wantPeekValue int
 			wantLen       int
 		}{
 			{
 				key:           "first",
+				wantStatus:    true,
 				wantPeekKey:   "second",
 				wantPeekValue: 8,
 				wantLen:       4,
 			},
 			{
 				key:           "third",
+				wantStatus:    true,
 				wantPeekKey:   "second",
 				wantPeekValue: 8,
 				wantLen:       3,
 			},
 			{
 				key:           "second",
+				wantStatus:    true,
 				wantPeekKey:   "fourth",
 				wantPeekValue: 10,
 				wantLen:       2,
 			},
 			{
 				key:           "last",
+				wantStatus:    true,
 				wantPeekKey:   "fourth",
 				wantPeekValue: 10,
 				wantLen:       1,
+			},
+			{
+				key:        "nonexistent",
+				wantStatus: false,
+				wantLen:    1,
 			},
 		}
 
 		for _, tc := range testCases {
 			t.Run(tc.key, func(t *testing.T) {
-				pq.Remove(tc.key)
+				gotStatus := pq.Remove(tc.key)
+				if gotStatus != tc.wantStatus {
+					t.Errorf("pq.Remove(): got status %t; want %t", gotStatus, tc.wantStatus)
+				}
+
+				if got := pq.Len(); got != tc.wantLen {
+					t.Errorf("pq.Len(): got %d; want %d", got, tc.wantLen)
+				}
+
+				if !gotStatus {
+					return
+				}
 
 				gotPeekKey, gotPeekValue, ok := pq.Peek()
 				if !ok {
@@ -332,20 +353,7 @@ func TestKeyedPriorityQueue_Remove(t *testing.T) {
 				if gotPeekValue != tc.wantPeekValue {
 					t.Errorf("pq.PeekValue(): got value %d; want %d", gotPeekValue, tc.wantPeekValue)
 				}
-
-				if got := pq.Len(); got != tc.wantLen {
-					t.Errorf("pq.Len(): got %d; want %d", got, tc.wantLen)
-				}
 			})
-		}
-	})
-
-	t.Run("NonExistingKey", func(t *testing.T) {
-		want := pq.Len()
-		pq.Remove("non-existing-key")
-
-		if got := pq.Len(); got != want {
-			t.Errorf("pq.Len(): got %d; want %d", got, want)
 		}
 	})
 }
@@ -479,7 +487,6 @@ func TestKeyedPriorityQueue_Set(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func benchmarkKeyedPriorityQueue_PushPop(b *testing.B, n int) {
@@ -500,18 +507,23 @@ func benchmarkKeyedPriorityQueue_PushPop(b *testing.B, n int) {
 func BenchmarkKeyedPriorityQueue_PushPop_10(b *testing.B) {
 	benchmarkKeyedPriorityQueue_PushPop(b, 10)
 }
+
 func BenchmarkKeyedPriorityQueue_PushPop_100(b *testing.B) {
 	benchmarkKeyedPriorityQueue_PushPop(b, 100)
 }
+
 func BenchmarkKeyedPriorityQueue_PushPop_1000(b *testing.B) {
 	benchmarkKeyedPriorityQueue_PushPop(b, 1000)
 }
+
 func BenchmarkKeyedPriorityQueue_PushPop_10000(b *testing.B) {
 	benchmarkKeyedPriorityQueue_PushPop(b, 10000)
 }
+
 func BenchmarkKeyedPriorityQueue_PushPop_100000(b *testing.B) {
 	benchmarkKeyedPriorityQueue_PushPop(b, 100000)
 }
+
 func BenchmarkKeyedPriorityQueue_PushPop_1000000(b *testing.B) {
 	benchmarkKeyedPriorityQueue_PushPop(b, 1000000)
 }
