@@ -60,7 +60,7 @@ func newKeyNotFoundError[K comparable](k K) error {
 // CmpFunc is a generic function type used for ordering the priority queue.
 type CmpFunc[V any] func(x, y V) bool
 
-// TODO comment
+// pair is a pair of key and value that might be put or read from the queue.
 type pair[K comparable, V any] struct {
 	k K
 	v V
@@ -142,9 +142,8 @@ func (pq *KeyedPriorityQueue[K, V]) Pop() (K, V, bool) {
 	return k, v, true
 }
 
-// TODO BlockingPop
-// Pop removes and returns the highest priority key and value from the priority queue.
-// It returns false as its last return value if the priority queue is empty; otherwise, true.
+// BlockingPop removes and returns the highest priority key and value from the priority queue.
+// In case queue is empty, it blocks until next Push happens.
 func (pq *KeyedPriorityQueue[K, V]) BlockingPop() (K, V) {
 	pq.mu.Lock()
 
