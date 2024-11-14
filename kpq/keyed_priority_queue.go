@@ -60,6 +60,12 @@ func newKeyNotFoundError[K comparable](k K) error {
 // CmpFunc is a generic function type used for ordering the priority queue.
 type CmpFunc[V any] func(x, y V) bool
 
+// TODO comment
+type pair[K comparable, V any] struct {
+	k K
+	v V
+}
+
 // KeyedPriorityQueue represents a generic keyed priority queue,
 // where K is the key type and V is the priority value type.
 //
@@ -71,6 +77,8 @@ type KeyedPriorityQueue[K comparable, V any] struct {
 	im   map[K]int // inverse map of pm; note that for a given key k, pm[im[k]] == k
 	vals map[K]V   // generic priority values of key k
 	cmp  CmpFunc[V]
+
+	fastTrack chan pair[K, V] // used for blocking pop calls
 }
 
 // NewKeyedPriorityQueue returns a new keyed priority queue
@@ -82,10 +90,11 @@ func NewKeyedPriorityQueue[K comparable, V any](cmp CmpFunc[V]) *KeyedPriorityQu
 		panic("keyed priority queue: comparison function cannot be nil")
 	}
 	return &KeyedPriorityQueue[K, V]{
-		pm:   make([]K, 0),
-		im:   make(map[K]int),
-		vals: make(map[K]V),
-		cmp:  cmp,
+		pm:        make([]K, 0),
+		im:        make(map[K]int),
+		vals:      make(map[K]V),
+		cmp:       cmp,
+		fastTrack: make(chan pair[K, V]),
 	}
 }
 
@@ -104,6 +113,12 @@ func (pq *KeyedPriorityQueue[K, V]) Push(k K, v V) error {
 }
 
 func (pq *KeyedPriorityQueue[K, V]) push(k K, v V) {
+	select {
+	case pq.fastTrack <- pair[K, V]{k: k, v: v}:
+		return
+	default:
+		// pass
+	}
 	n := len(pq.pm)
 	pq.pm = append(pq.pm, k)
 	pq.im[k] = n
@@ -122,6 +137,29 @@ func (pq *KeyedPriorityQueue[K, V]) Pop() (K, V, bool) {
 		var v V
 		return k, v, false
 	}
+
+	k, v := pq.pop()
+	return k, v, true
+}
+
+// TODO BlockingPop
+// Pop removes and returns the highest priority key and value from the priority queue.
+// It returns false as its last return value if the priority queue is empty; otherwise, true.
+func (pq *KeyedPriorityQueue[K, V]) BlockingPop() (K, V) {
+	pq.mu.Lock()
+
+	if len(pq.pm) == 0 {
+		pq.mu.Unlock()
+
+		pair := <-pq.fastTrack
+		return pair.k, pair.v
+	}
+
+	defer pq.mu.Unlock()
+	return pq.pop()
+}
+
+func (pq *KeyedPriorityQueue[K, V]) pop() (K, V) {
 	n := len(pq.pm) - 1
 	k := pq.pm[0]
 	v := pq.vals[k]
@@ -130,7 +168,7 @@ func (pq *KeyedPriorityQueue[K, V]) Pop() (K, V, bool) {
 	pq.pm = pq.pm[:n]
 	delete(pq.im, k)
 	delete(pq.vals, k)
-	return k, v, true
+	return k, v
 }
 
 // Set inserts a new entry in the priority queue with the given key and value,

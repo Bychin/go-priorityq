@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestNewKeyedPriorityQueue_NilCmp(t *testing.T) {
@@ -258,6 +259,126 @@ func TestKeyedPriorityQueue_Pop(t *testing.T) {
 			t.Errorf("pq.Pop(): got unexpected non-empty priorit queue")
 		}
 	})
+}
+
+func TestKeyedPriorityQueue_BlockingPop(t *testing.T) {
+	t.Run("Keys", func(t *testing.T) {
+		pq := NewKeyedPriorityQueue[string](func(x, y int) bool {
+			return x < y
+		})
+
+		items := []struct {
+			key string
+			val int
+		}{
+			{key: "fourth", val: 10},
+			{key: "second", val: 8},
+			{key: "third", val: 9},
+			{key: "first", val: 6},
+			{key: "last", val: 20},
+		}
+
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			for _, item := range items {
+				err := pq.Push(item.key, item.val)
+				if err != nil {
+					panic(fmt.Sprintf("Push(%v, %v): got unexpected error %v", item.key, item.val, err))
+				}
+			}
+		}()
+
+		testCases := []struct {
+			wantKey       string
+			wantValue     int
+			wantPeekKey   string
+			wantPeekValue int
+			wantLen       int
+		}{
+			{
+				wantKey:       "fourth", //"first",
+				wantValue:     10,       // 6,
+				wantPeekKey:   "first",  //"second",
+				wantPeekValue: 6,        // 8,
+				wantLen:       4,
+			},
+			{
+				wantKey:       "first",  //"second",
+				wantValue:     6,        // 8,
+				wantPeekKey:   "second", //"third",
+				wantPeekValue: 8,        // 9,
+				wantLen:       3,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(fmt.Sprintf("%s_%d", tc.wantKey, tc.wantValue), func(t *testing.T) {
+				gotKey, gotValue := pq.BlockingPop()
+
+				if gotKey != tc.wantKey {
+					t.Errorf("pq.BlockingPop(): got key %q; want %q", gotKey, tc.wantKey)
+				}
+
+				if gotValue != tc.wantValue {
+					t.Errorf("pq.BlockingPop(): got value %d; want %d", gotValue, tc.wantValue)
+				}
+
+				time.Sleep(10 * time.Millisecond)
+
+				gotPeekKey, gotPeekValue, ok := pq.Peek()
+				if !ok {
+					t.Fatal("got no min key and value in the priority queue")
+				}
+
+				if gotPeekKey != tc.wantPeekKey {
+					t.Errorf("pq.Peek(): got key %q; want %q", gotPeekKey, tc.wantPeekKey)
+				}
+
+				if gotPeekValue != tc.wantPeekValue {
+					t.Errorf("pq.Peek(): got value %d; want %d", gotPeekValue, tc.wantPeekValue)
+				}
+
+				if got := pq.Len(); got != tc.wantLen {
+					t.Errorf("pq.Len(): got %d; want %d", got, tc.wantLen)
+				}
+			})
+		}
+	})
+
+	/*t.Run("EmptyPQ", func(t *testing.T) {
+		pq := NewKeyedPriorityQueue[string](func(x, y int) bool {
+			return x < y
+		})
+
+		items := []struct {
+			key string
+			val int
+		}{
+			{key: "fourth", val: 10},
+			{key: "second", val: 8},
+			{key: "third", val: 9},
+			{key: "first", val: 6},
+			{key: "last", val: 20},
+		}
+
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			for _, item := range items {
+				err := pq.Push(item.key, item.val)
+				if err != nil {
+					panic(fmt.Sprintf("Push(%v, %v): got unexpected error %v", item.key, item.val, err))
+				}
+			}
+		}()
+
+		gotKey, gotValue := pq.BlockingPop()
+		if gotKey != items[0].key {
+			t.Errorf("pq.BlockingPop(): got key %q; want %q", gotKey, items[0].key)
+		}
+		if gotValue != items[0].val {
+			t.Errorf("pq.BlockingPop(): got value %d; want %d", gotValue, items[0].val)
+		}
+	})*/
 }
 
 func TestKeyedPriorityQueue_Remove(t *testing.T) {
