@@ -145,7 +145,7 @@ func (pq *KeyedPriorityQueue[K, V]) Pop() (K, V, bool) {
 
 // BlockingPop removes and returns the highest priority key and value from the priority queue.
 // In case queue is empty, it blocks until next Push happens or ctx is closed.
-func (pq *KeyedPriorityQueue[K, V]) BlockingPop(ctx context.Context) (K, V) {
+func (pq *KeyedPriorityQueue[K, V]) BlockingPop(ctx context.Context) (K, V, bool) {
 	pq.mu.Lock()
 
 	if len(pq.pm) == 0 {
@@ -155,14 +155,15 @@ func (pq *KeyedPriorityQueue[K, V]) BlockingPop(ctx context.Context) (K, V) {
 		case <-ctx.Done():
 			var k K
 			var v V
-			return k, v
+			return k, v, false
 		case pair := <-pq.fastTrack:
-			return pair.k, pair.v
+			return pair.k, pair.v, true
 		}
 	}
 
 	defer pq.mu.Unlock()
-	return pq.pop()
+	k, v := pq.pop()
+	return k, v, true
 }
 
 func (pq *KeyedPriorityQueue[K, V]) pop() (K, V) {

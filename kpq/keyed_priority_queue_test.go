@@ -1,6 +1,7 @@
 package kpq
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -314,7 +315,7 @@ func TestKeyedPriorityQueue_BlockingPop(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%s_%d", tc.wantKey, tc.wantValue), func(t *testing.T) {
-				gotKey, gotValue := pq.BlockingPop()
+				gotKey, gotValue, _ := pq.BlockingPop(context.Background())
 
 				if gotKey != tc.wantKey {
 					t.Errorf("pq.BlockingPop(): got key %q; want %q", gotKey, tc.wantKey)
@@ -394,7 +395,7 @@ func TestKeyedPriorityQueue_BlockingPop(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%s_%d", tc.wantKey, tc.wantValue), func(t *testing.T) {
-				gotKey, gotValue := pq.BlockingPop()
+				gotKey, gotValue, _ := pq.BlockingPop(context.Background())
 
 				if gotKey != tc.wantKey {
 					t.Errorf("pq.Pop(): got key %q; want %q", gotKey, tc.wantKey)
