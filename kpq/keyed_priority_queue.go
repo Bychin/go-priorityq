@@ -8,6 +8,7 @@
 package kpq
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -143,15 +144,21 @@ func (pq *KeyedPriorityQueue[K, V]) Pop() (K, V, bool) {
 }
 
 // BlockingPop removes and returns the highest priority key and value from the priority queue.
-// In case queue is empty, it blocks until next Push happens.
-func (pq *KeyedPriorityQueue[K, V]) BlockingPop() (K, V) {
+// In case queue is empty, it blocks until next Push happens or ctx is closed.
+func (pq *KeyedPriorityQueue[K, V]) BlockingPop(ctx context.Context) (K, V) {
 	pq.mu.Lock()
 
 	if len(pq.pm) == 0 {
 		pq.mu.Unlock()
 
-		pair := <-pq.fastTrack
-		return pair.k, pair.v
+		select {
+		case <-ctx.Done():
+			var k K
+			var v V
+			return k, v
+		case pair := <-pq.fastTrack:
+			return pair.k, pair.v
+		}
 	}
 
 	defer pq.mu.Unlock()
